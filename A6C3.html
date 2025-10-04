@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<audio src = "music.mp3" id = "Audio"></audio>
+</head>
+<body>
+    <center>
+        <br>
+        <p>dance</p>
+<video src = "dance.mp4" id = "Video" width="400"></video><br>
+<script>
+    function MyPlay(){
+          document.getElementById("Video").play(); 
+          document.getElementById("Audio").play();  
+
+    }
+
+    function MyStop(){
+        document.getElementById("Video").pause();  
+        document.getElementById("Video").currentTime=0;
+    }
+</script>
+<br>
+
+<button onclick="MyPlay()">Play</button>
+<button onclick="MyStop()">Stop</button>
+
+</center>
+</body>
+</html>
