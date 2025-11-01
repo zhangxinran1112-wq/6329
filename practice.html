@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <script>
+    function show(a) {               
+    document.getElementById('Q1').style.display="none";
+    document.getElementById('Q2').style.display="none";
+    document.getElementById(a).style.display="block";    
+    }
+    </script>
+    </head>
+    <body>
+         <center>
+            <div id="Q1" style="display: block;">
+            <table border="1"width="400">
+                <tr>
+                    <td>food 1</td><td>$3</td>
+                </tr>
+                <tr>
+                    <td><img src="noodle.jpg" width="100"></td><td>noodles</td>
+                </tr>
+            </table>
+            </div>
+<br>
+            <div id="Q2" style="display: none;">
+            <table border="1"width="400">
+                <tr>
+                    <td>food 2</td><td>$5</td>
+                </tr>
+                <tr>
+                    <td><img src="nasilemak.jpg" width="100"></td><td>nasilemak</td>
+                </tr>
+            </table>
+            </div>
+            
+        <button type="button" onclick="show('Q1')">food1</button>
+        <button type="button" onclick="show('Q2')">food2</button>
+        </center>
+    </body>
+</html>
