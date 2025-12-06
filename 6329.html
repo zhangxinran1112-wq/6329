@@ -918,7 +918,7 @@
             let historyIndex = -1;
             const MAX_HISTORY = 10;
             
-            // 保存历史状态
+            // 保存历史状态 - 修复：保存emoji字符
             function saveHistory() {
                 // 如果当前不是最新状态，删除后面的历史
                 if (historyIndex < history.length - 1) {
@@ -936,6 +936,8 @@
                             width: el.style.width,
                             height: el.style.height,
                             content: el.dataset.type === 'text' ? el.textContent : null,
+                            // 修复：保存emoji字符
+                            emoji: el.dataset.type === 'emoji' ? el.querySelector('span')?.textContent || '😀' : null,
                             color: el.dataset.color,
                             shape: el.dataset.shape,
                             fontSize: el.style.fontSize,
@@ -1029,7 +1031,7 @@
                 addElementInteractivity(textElement);
             }
             
-            // 恢复Emoji元素
+            // 恢复Emoji元素 - 修复：使用实际保存的emoji字符
             function restoreEmojiElement(data) {
                 const emojiElement = document.createElement('div');
                 emojiElement.className = 'canvas-element';
@@ -1037,7 +1039,8 @@
                 emojiElement.dataset.id = data.id;
                 
                 const emojiSpan = document.createElement('span');
-                emojiSpan.textContent = '😀'; // 默认表情，实际应从data中获取
+                // 修复：使用实际保存的emoji字符，而不是硬编码的"😀"
+                emojiSpan.textContent = data.emoji || '😀';
                 emojiSpan.style.fontSize = data.fontSize || '60px';
                 emojiSpan.style.display = 'block';
                 emojiSpan.style.textAlign = 'center';
@@ -1810,86 +1813,163 @@
                 }
             });
             
-            // 保存为图片
+            // 保存为图片 - 修复：确保准确渲染
             saveBtn.addEventListener('click', function() {
-                // 创建临时canvas用于导出
-                const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = canvas.width;
-                exportCanvas.height = canvas.height;
-                const exportCtx = exportCanvas.getContext('2d');
+                // 临时隐藏选择边框
+                const originalSelected = selectedElement;
+                if (selectedElement) {
+                    selectedElement.classList.remove('selected');
+                }
+                
+                // 创建临时容器用于截图
+                const exportContainer = document.createElement('div');
+                exportContainer.id = 'export-container';
+                exportContainer.style.position = 'fixed';
+                exportContainer.style.left = '-9999px';
+                exportContainer.style.top = '0';
+                exportContainer.style.width = canvasContainer.offsetWidth + 'px';
+                exportContainer.style.height = canvasContainer.offsetHeight + 'px';
+                exportContainer.style.backgroundColor = canvasColorPicker.value || '#FFFFFF';
+                
+                // 复制canvas绘制内容
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width;
+                tempCanvas.height = canvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
                 
                 // 绘制背景
-                exportCtx.fillStyle = canvasColorPicker.value || '#FFFFFF';
-                exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+                tempCtx.fillStyle = canvasColorPicker.value || '#FFFFFF';
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
                 
                 // 绘制所有画笔路径
                 paths.forEach(path => {
                     if (path.points.length < 2) return;
                     
-                    exportCtx.strokeStyle = path.color;
-                    exportCtx.lineWidth = path.thickness;
-                    exportCtx.lineCap = 'round';
-                    exportCtx.lineJoin = 'round';
+                    tempCtx.strokeStyle = path.color;
+                    tempCtx.lineWidth = path.thickness;
+                    tempCtx.lineCap = 'round';
+                    tempCtx.lineJoin = 'round';
                     
-                    exportCtx.beginPath();
-                    exportCtx.moveTo(path.points[0].x, path.points[0].y);
+                    tempCtx.beginPath();
+                    tempCtx.moveTo(path.points[0].x, path.points[0].y);
                     
                     for (let i = 1; i < path.points.length; i++) {
-                        exportCtx.lineTo(path.points[i].x, path.points[i].y);
+                        tempCtx.lineTo(path.points[i].x, path.points[i].y);
                     }
                     
-                    exportCtx.stroke();
+                    tempCtx.stroke();
                 });
                 
-                // 使用html2canvas绘制所有DOM元素
-                const elementsContainer = document.createElement('div');
-                elementsContainer.style.position = 'absolute';
-                elementsContainer.style.width = canvasContainer.offsetWidth + 'px';
-                elementsContainer.style.height = canvasContainer.offsetHeight + 'px';
-                elementsContainer.style.left = '0';
-                elementsContainer.style.top = '0';
-                elementsContainer.style.overflow = 'hidden';
+                // 将canvas绘制内容添加到导出容器
+                const canvasImg = document.createElement('img');
+                canvasImg.src = tempCanvas.toDataURL('image/png');
+                canvasImg.style.width = '100%';
+                canvasImg.style.height = '100%';
+                canvasImg.style.position = 'absolute';
+                canvasImg.style.top = '0';
+                canvasImg.style.left = '0';
+                exportContainer.appendChild(canvasImg);
                 
-                // 复制所有元素到临时容器
+                // 复制所有DOM元素到导出容器
                 elements.forEach(element => {
                     const clone = element.cloneNode(true);
+                    
+                    // 移除选择状态和交互元素
+                    clone.classList.remove('selected');
+                    const resizeHandle = clone.querySelector('.resize-handle');
+                    if (resizeHandle) {
+                        resizeHandle.style.display = 'none';
+                    }
+                    
+                    // 确保所有样式正确复制
+                    const computedStyle = window.getComputedStyle(element);
+                    
+                    // 复制所有必要的样式
                     clone.style.position = 'absolute';
                     clone.style.left = element.offsetLeft + 'px';
                     clone.style.top = element.offsetTop + 'px';
                     clone.style.width = element.offsetWidth + 'px';
                     clone.style.height = element.offsetHeight + 'px';
-                    clone.classList.remove('selected');
-                    elementsContainer.appendChild(clone);
-                });
-                
-                document.body.appendChild(elementsContainer);
-                
-                html2canvas(elementsContainer, {
-                    scale: 2,
-                    backgroundColor: 'transparent',
-                    useCORS: true,
-                    width: exportCanvas.width,
-                    height: exportCanvas.height
-                }).then(function(elementsCanvas) {
-                    // 绘制元素到导出canvas
-                    exportCtx.drawImage(elementsCanvas, 0, 0);
+                    clone.style.fontFamily = computedStyle.fontFamily;
+                    clone.style.fontSize = computedStyle.fontSize;
+                    clone.style.fontWeight = computedStyle.fontWeight;
+                    clone.style.color = computedStyle.color;
+                    clone.style.backgroundColor = computedStyle.backgroundColor;
+                    clone.style.border = computedStyle.border;
+                    clone.style.textAlign = computedStyle.textAlign;
+                    clone.style.display = computedStyle.display;
+                    clone.style.alignItems = computedStyle.alignItems;
+                    clone.style.justifyContent = computedStyle.justifyContent;
                     
-                    // 移除临时容器
-                    document.body.removeChild(elementsContainer);
-                    
-                    // 创建下载链接
-                    const link = document.createElement('a');
-                    link.download = 'Emoji-Design-' + new Date().getTime() + '.png';
-                    link.href = exportCanvas.toDataURL('image/png');
-                    link.click();
-                }).catch(function(error) {
-                    console.error('Export failed:', error);
-                    alert('Export failed, please try again');
-                    // 确保移除临时容器
-                    if (elementsContainer.parentNode) {
-                        document.body.removeChild(elementsContainer);
+                    // 特殊处理emoji元素
+                    if (clone.dataset.type === 'emoji') {
+                        const emojiSpan = clone.querySelector('span');
+                        if (emojiSpan) {
+                            emojiSpan.style.fontSize = computedStyle.fontSize;
+                            emojiSpan.style.lineHeight = '1';
+                        }
                     }
+                    
+                    exportContainer.appendChild(clone);
                 });
+                
+                document.body.appendChild(exportContainer);
+                
+                // 等待样式应用
+                setTimeout(() => {
+                    html2canvas(exportContainer, {
+                        scale: 2, // 提高分辨率
+                        backgroundColor: null, // 透明背景
+                        useCORS: true,
+                        allowTaint: true,
+                        logging: false,
+                        width: canvasContainer.offsetWidth,
+                        height: canvasContainer.offsetHeight,
+                        onclone: function(clonedDoc) {
+                            // 确保克隆文档中的字体加载
+                            const style = clonedDoc.createElement('style');
+                            style.textContent = `
+                                @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@100;200;300;400;500;600;700;800;900&family=Source+Han+Sans+SC:wght@400;500;700&display=swap');
+                                * {
+                                    font-smoothing: antialiased !important;
+                                    -webkit-font-smoothing: antialiased !important;
+                                }
+                            `;
+                            clonedDoc.head.appendChild(style);
+                        }
+                    }).then(function(canvas) {
+                        // 创建下载链接
+                        const link = document.createElement('a');
+                        link.download = 'Emoji-Design-' + new Date().getTime() + '.png';
+                        link.href = canvas.toDataURL('image/png', 1.0); // 最高质量
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // 清理临时容器
+                        document.body.removeChild(exportContainer);
+                        
+                        // 恢复选择状态
+                        if (originalSelected) {
+                            originalSelected.classList.add('selected');
+                            selectedElement = originalSelected;
+                        }
+                    }).catch(function(error) {
+                        console.error('Export failed:', error);
+                        alert('Export failed, please try again');
+                        
+                        // 确保清理临时容器
+                        if (exportContainer.parentNode) {
+                            document.body.removeChild(exportContainer);
+                        }
+                        
+                        // 恢复选择状态
+                        if (originalSelected) {
+                            originalSelected.classList.add('selected');
+                            selectedElement = originalSelected;
+                        }
+                    });
+                }, 100);
             });
             
             // 初始化
